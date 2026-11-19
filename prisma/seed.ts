@@ -30,17 +30,18 @@ async function main() {
     ];
     for (const m of members) {
       // PINs are never touched by the seed.
-      const fields = { householdId: household.id, canLogin: m.canLogin, isAdmin: m.isAdmin, sortOrder: order };
+      const fields = { householdId: household.id, canLogin: m.canLogin, isAdmin: m.isAdmin, retired: false, sortOrder: order };
       await prisma.person.upsert({ where: { name: m.name }, update: fields, create: { name: m.name, ...fields } });
       order++;
     }
   }
-  for (const name of family.shared) {
-    await prisma.person.upsert({
-      where: { name },
-      update: { householdId: null, canLogin: false, isAdmin: false, sortOrder: order },
-      create: { name, householdId: null, canLogin: false, isAdmin: false, sortOrder: order },
-    });
+  const shared = [
+    ...family.shared.map((name) => ({ name, retired: false })),
+    ...family.pastShared.map((name) => ({ name, retired: true })),
+  ];
+  for (const { name, retired } of shared) {
+    const fields = { householdId: null, canLogin: false, isAdmin: false, retired, sortOrder: order };
+    await prisma.person.upsert({ where: { name }, update: fields, create: { name, ...fields } });
     order++;
   }
   const [households, people] = await Promise.all([prisma.household.count(), prisma.person.count()]);

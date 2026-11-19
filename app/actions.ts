@@ -138,7 +138,7 @@ const GiftSchema = z.object({
 async function peopleMap(ids: string[]) {
   const people = await prisma.person.findMany({
     where: { id: { in: ids } },
-    select: { id: true, name: true, householdId: true },
+    select: { id: true, name: true, householdId: true, retired: true },
   });
   return new Map(people.map((p) => [p.id, p]));
 }
@@ -164,13 +164,14 @@ export async function saveGift(_prev: FormState, formData: FormData): Promise<Fo
   // The buyer never comes from the form: a new present is bought by your household;
   // an edited one keeps its buyer (so an admin fixing it doesn't move it).
   let buyerId: string;
+  let existingRecipients: string[] = [];
   if (data.id) {
     const existing = await prisma.gift.findUnique({
       where: { id: data.id },
       select: { buyerId: true, enteredById: true, recipients: { select: { personId: true } } },
     });
     if (!existing) return { error: "That present no longer exists." };
-    const existingRecipients = existing.recipients.map((r) => r.personId);
+    existingRecipients = existing.recipients.map((r) => r.personId);
     if (isHiddenFrom(existingRecipients, session.householdId, await peopleMap(existingRecipients))) {
       return { error: "That present no longer exists." };
     }
@@ -185,6 +186,10 @@ export async function saveGift(_prev: FormState, formData: FormData): Promise<Fo
   const recipientIds = [...new Set(data.recipientIds)];
   const people = await peopleMap(recipientIds);
   if (people.size !== recipientIds.length) return { error: "Unknown recipient." };
+  // Retired recipients can stay on a present that already has them, but can't be added.
+  if (recipientIds.some((id) => people.get(id)?.retired && !existingRecipients.includes(id))) {
+    return { error: "Unknown recipient." };
+  }
   const ownMembers = invalidRecipientIds(buyerId, recipientIds, people);
   if (ownMembers.length > 0) {
     const names = ownMembers.map((id) => people.get(id)?.name).join(", ");

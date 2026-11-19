@@ -6,7 +6,7 @@ export async function loadFamily() {
     prisma.household.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.person.findMany({
       orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, householdId: true, canLogin: true },
+      select: { id: true, name: true, householdId: true, canLogin: true, retired: true },
     }),
   ]);
   return { households, people };

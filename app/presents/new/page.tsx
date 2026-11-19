@@ -27,7 +27,7 @@ async function NewPresent({ searchParams }: { searchParams: PageProps<"/presents
   return (
     <GiftForm
       households={households}
-      people={people}
+      people={people.filter((p) => !p.retired)}
       year={year}
       buyerId={session.householdId}
       viewerHouseholdId={session.householdId}

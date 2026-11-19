@@ -78,7 +78,7 @@ async function EditPresent({ params }: { params: PageProps<"/presents/[id]/edit"
       )}
       <GiftForm
         households={households}
-        people={people}
+        people={people.filter((p) => !p.retired || recipientIds.includes(p.id))}
         year={gift.year}
         buyerId={gift.buyerId}
         viewerHouseholdId={session.householdId}

@@ -58,7 +58,13 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
       isHousehold: true,
       members: people.filter((p) => p.householdId === h.id),
     })),
-    { label: "Everyone shares", own: false, isHousehold: false, members: people.filter((p) => p.householdId === null) },
+    {
+      label: "Everyone shares",
+      own: false,
+      isHousehold: false,
+      // Retired recipients (e.g. from years ago) only show in years they received something.
+      members: people.filter((p) => p.householdId === null && (!p.retired || received.has(p.id))),
+    },
   ].filter((g) => g.members.length > 0);
 
   return (

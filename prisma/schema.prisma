@@ -33,6 +33,9 @@ model Person {
   sessionVersion Int             @default(0)
   /// Can edit or delete any present they can see. Set from data/family.json "admins".
   isAdmin        Boolean         @default(false)
+  /// No longer bought for (data/family.json "pastShared"): kept so past years still add up,
+  /// but left out of this year's lists and the add-a-present form.
+  retired        Boolean         @default(false)
   sortOrder      Int             @default(0)
   received       GiftRecipient[]
   giftsEntered   Gift[]          @relation("EnteredBy")

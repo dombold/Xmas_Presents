@@ -56,3 +56,6 @@ next-env.d.ts
 
 # local deploy config
 /.claude
+
+# Windows download metadata
+*:Zone.Identifier
