@@ -3,7 +3,9 @@ import Link from "next/link";
 import ChristmasCountdown from "@/components/ChristmasCountdown";
 import Snowfall from "@/components/Snowfall";
 import { requireSession } from "@/lib/session";
-import { loadFamily, loadGifts, loadYears } from "@/lib/queries";
+import { loadFamily, loadGifts, loadSettlements, loadYears } from "@/lib/queries";
+import SettleToggle from "@/components/SettleToggle";
+import YearSelect from "@/components/YearSelect";
 import { formatMoney, isHiddenFrom, settleUp, summarise } from "@/lib/split";
 import { canEditGift } from "@/lib/permissions";
 import { currentYear, parseYear } from "@/lib/years";
@@ -31,11 +33,22 @@ export default function Home({ searchParams }: PageProps<"/">) {
 async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
   const session = await requireSession();
   const year = parseYear((await searchParams).year);
-  const [{ households, people }, gifts, years] = await Promise.all([loadFamily(), loadGifts(year), loadYears(currentYear())]);
+  const [{ households, people }, gifts, years, settlements] = await Promise.all([
+    loadFamily(),
+    loadGifts(year),
+    loadYears(currentYear()),
+    loadSettlements(year),
+  ]);
 
   // Money is always worked out from every present; only the list hides presents for your household.
   const summary = summarise(gifts, households, people);
-  const transfers = settleUp(summary);
+  // A tick only counts while the payment's amount is unchanged.
+  const transfers = settleUp(summary).map((t) => ({
+    ...t,
+    settled: settlements.get(`${t.fromId}:${t.toId}`) === t.amountCents,
+  }));
+  const allSettled = transfers.length > 0 && transfers.every((t) => t.settled);
+  const totalSpentCents = gifts.reduce((sum, g) => sum + g.costCents, 0);
   const householdName = new Map(households.map((h) => [h.id, h.name]));
   const personName = new Map(people.map((p) => [p.id, p.name]));
   const peopleById = new Map(people.map((p) => [p.id, p]));
@@ -71,20 +84,7 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
     <div className="mx-auto max-w-5xl space-y-12 px-4 py-10">
       {/* Year + actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <nav aria-label="Year" className="flex flex-wrap gap-2">
-          {years.map((y) => (
-            <Link
-              key={y}
-              href={`/?year=${y}`}
-              aria-current={y === year ? "page" : undefined}
-              className={`rounded-full border px-4 py-1.5 text-sm font-semibold ${
-                y === year ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:border-primary"
-              }`}
-            >
-              {y}
-            </Link>
-          ))}
-        </nav>
+        <YearSelect years={years} year={year} />
         <Link href={`/presents/new?year=${year}`} className="btn-primary">
           + Add a present
         </Link>
@@ -162,22 +162,46 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
 
       {/* Settle up */}
       <section aria-labelledby="settle">
-        <h2 id="settle" className="mb-4 text-2xl font-bold">
-          Settle up
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <h2 id="settle" className="text-2xl font-bold">
+            Settle up
+          </h2>
+          {allSettled && (
+            <span className="rounded-full bg-accent px-3 py-1 text-sm font-semibold text-white">✓ Settled up</span>
+          )}
+        </div>
         {transfers.length === 0 ? (
           <p className="text-muted">Everyone is square{gifts.length === 0 ? " — no presents added yet" : ""}.</p>
         ) : (
-          <ul className="card divide-y divide-border">
-            {transfers.map((t) => (
-              <li key={`${t.fromId}-${t.toId}`} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                <span>
-                  <strong>{t.fromName}</strong> pays <strong>{t.toName}</strong>
-                </span>
-                <span className="font-semibold tabular-nums">{formatMoney(t.amountCents)}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {!allSettled && (
+              <p className="mb-3 text-sm text-muted">The household being paid ticks each payment once it arrives.</p>
+            )}
+            <ul className={`card divide-y divide-border ${allSettled ? "border-accent" : ""}`}>
+              {transfers.map((t) => (
+                <li key={`${t.fromId}-${t.toId}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
+                  <span className={t.settled ? "text-muted" : ""}>
+                    <strong>{t.fromName}</strong> pays <strong>{t.toName}</strong>{" "}
+                    <span className="font-semibold tabular-nums">{formatMoney(t.amountCents)}</span>
+                  </span>
+                  <SettleToggle
+                    year={year}
+                    fromId={t.fromId}
+                    toId={t.toId}
+                    settled={t.settled}
+                    canTick={session.householdId === t.toId || session.isAdmin}
+                    payee={t.toName}
+                  />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {gifts.length > 0 && (
+          <p className="mt-4 flex justify-between gap-4 border-t-2 border-border pt-3 font-semibold">
+            <span>Total spent on presents in {year}</span>
+            <span className="tabular-nums">{formatMoney(totalSpentCents)}</span>
+          </p>
         )}
       </section>
 

@@ -15,6 +15,8 @@ model Household {
   sortOrder Int      @default(0)
   members   Person[]
   gifts     Gift[]
+  paysOut   Settlement[] @relation("SettlementFrom")
+  paidIn    Settlement[] @relation("SettlementTo")
 }
 
 /// Anyone who can receive a present. People in a household (adults and kids)
@@ -39,6 +41,7 @@ model Person {
   sortOrder      Int             @default(0)
   received       GiftRecipient[]
   giftsEntered   Gift[]          @relation("EnteredBy")
+  settlements    Settlement[]
 
   @@index([householdId])
 }
@@ -72,4 +75,22 @@ model GiftRecipient {
 
   @@id([giftId, personId])
   @@index([personId])
+}
+
+/// A "Settle up" payment the payee has ticked as received. Payments are worked out from the
+/// presents, so a tick only counts while the amount still matches (adding or changing a
+/// present for that year clears it).
+model Settlement {
+  year            Int
+  fromHouseholdId String
+  from            Household @relation("SettlementFrom", fields: [fromHouseholdId], references: [id], onDelete: Cascade)
+  toHouseholdId   String
+  to              Household @relation("SettlementTo", fields: [toHouseholdId], references: [id], onDelete: Cascade)
+  amountCents     Int
+  /// Who ticked it (null when marked by a script).
+  settledById     String?
+  settledBy       Person?   @relation(fields: [settledById], references: [id], onDelete: SetNull)
+  settledAt       DateTime  @default(now())
+
+  @@id([year, fromHouseholdId, toHouseholdId])
 }

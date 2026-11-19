@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
-    "pin:reset": "tsx tools/reset-pin.ts"
+    "pin:reset": "tsx tools/reset-pin.ts",
+    "settle:past": "tsx tools/settle-past-years.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

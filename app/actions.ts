@@ -10,6 +10,7 @@ import { SESSION_COOKIE, familyPinMatches } from "@/lib/sessionToken";
 import { PIN_PATTERN, hashPin, verifyPin } from "@/lib/pinHash";
 import { allowAttempt, clearFailures, recordFailure } from "@/lib/rateLimit";
 import { canEditGift } from "@/lib/permissions";
+import { loadTransfers } from "@/lib/queries";
 import { invalidRecipientIds, isHiddenFrom, parseDollars } from "@/lib/split";
 
 export type FormState = { error?: string } | undefined;
@@ -237,4 +238,42 @@ export async function deleteGift(formData: FormData) {
   }
   revalidatePath("/");
   redirect(`/?year=${gift?.year ?? ""}`);
+}
+
+// ---------- Settle up ----------
+
+const SettleSchema = z.object({
+  year: z.number().int().min(2000).max(2100),
+  fromId: z.string().min(1),
+  toId: z.string().min(1),
+  settled: z.boolean(),
+});
+
+/** The payee (or an admin) ticks a "Settle up" payment as received, or unticks it. */
+export async function setSettled(input: z.infer<typeof SettleSchema>): Promise<FormState> {
+  const session = await requireActionSession();
+  const parsed = SettleSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid request." };
+  const { year, fromId, toId, settled } = parsed.data;
+
+  if (session.householdId !== toId && !session.isAdmin) {
+    return { error: "Only the household being paid can tick this off." };
+  }
+  // The payment must be one the presents actually produce right now (never trust the amount from the browser).
+  const transfer = (await loadTransfers(year)).find((t) => t.fromId === fromId && t.toId === toId);
+  if (!transfer) return { error: "That payment has changed — refresh the page." };
+
+  const key = { year_fromHouseholdId_toHouseholdId: { year, fromHouseholdId: fromId, toHouseholdId: toId } };
+  if (settled) {
+    const fields = { amountCents: transfer.amountCents, settledById: session.personId, settledAt: new Date() };
+    await prisma.settlement.upsert({
+      where: key,
+      update: fields,
+      create: { year, fromHouseholdId: fromId, toHouseholdId: toId, ...fields },
+    });
+  } else {
+    await prisma.settlement.deleteMany({ where: { year, fromHouseholdId: fromId, toHouseholdId: toId } });
+  }
+  revalidatePath("/");
+  return undefined;
 }

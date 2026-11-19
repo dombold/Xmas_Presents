@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { settleUp, summarise } from "@/lib/split";
 
 export async function loadFamily() {
   const [households, people] = await Promise.all([
@@ -28,6 +29,21 @@ export async function loadGifts(year: number) {
     },
   });
   return gifts.map(({ recipients, ...g }) => ({ ...g, recipientIds: recipients.map((r) => r.personId) }));
+}
+
+/** Payments ticked as received for a year, keyed "fromId:toId" → amount ticked. */
+export async function loadSettlements(year: number) {
+  const rows = await prisma.settlement.findMany({
+    where: { year },
+    select: { fromHouseholdId: true, toHouseholdId: true, amountCents: true },
+  });
+  return new Map(rows.map((r) => [`${r.fromHouseholdId}:${r.toHouseholdId}`, r.amountCents]));
+}
+
+/** The year's "Settle up" payments, worked out from its presents. */
+export async function loadTransfers(year: number) {
+  const [{ households, people }, gifts] = await Promise.all([loadFamily(), loadGifts(year)]);
+  return settleUp(summarise(gifts, households, people));
 }
 
 export type LoadedGift = Awaited<ReturnType<typeof loadGifts>>[number];
