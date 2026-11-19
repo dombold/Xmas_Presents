@@ -22,6 +22,7 @@ export async function loadGifts(year: number) {
       description: true,
       costCents: true,
       note: true,
+      enteredById: true,
       enteredBy: { select: { name: true } },
       recipients: { select: { personId: true } },
     },

@@ -21,15 +21,21 @@ model Household {
 /// are paid for by the *other* households; people with no household
 /// (e.g. grandparents) are shared by every household.
 model Person {
-  id           String          @id @default(cuid())
-  name         String          @unique
-  householdId  String?
-  household    Household?      @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  id             String          @id @default(cuid())
+  name           String          @unique
+  householdId    String?
+  household      Household?      @relation(fields: [householdId], references: [id], onDelete: Restrict)
   /// Adults who can sign in and enter presents.
-  canLogin     Boolean         @default(false)
-  sortOrder    Int             @default(0)
-  received     GiftRecipient[]
-  giftsEntered Gift[]          @relation("EnteredBy")
+  canLogin       Boolean         @default(false)
+  /// Personal PIN (scrypt). Null until the person first signs in with the family PIN and sets one.
+  pinHash        String?
+  /// Bumped when the PIN changes or is reset; signs out every existing session for this person.
+  sessionVersion Int             @default(0)
+  /// Can edit or delete any present they can see. Set from data/family.json "admins".
+  isAdmin        Boolean         @default(false)
+  sortOrder      Int             @default(0)
+  received       GiftRecipient[]
+  giftsEntered   Gift[]          @relation("EnteredBy")
 
   @@index([householdId])
 }

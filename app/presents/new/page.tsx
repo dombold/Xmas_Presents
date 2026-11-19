@@ -22,13 +22,15 @@ export default function NewPresentPage({ searchParams }: PageProps<"/presents/ne
 async function NewPresent({ searchParams }: { searchParams: PageProps<"/presents/new">["searchParams"] }) {
   const session = await requireSession();
   const year = parseYear((await searchParams).year);
+  if (!session.householdId) return <p className="text-muted">Only people in a household can add presents.</p>;
   const { households, people } = await loadFamily();
   return (
     <GiftForm
       households={households}
       people={people}
       year={year}
-      defaultBuyerId={session.householdId ?? households[0]?.id ?? ""}
+      buyerId={session.householdId}
+      viewerHouseholdId={session.householdId}
     />
   );
 }

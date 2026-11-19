@@ -9,10 +9,12 @@ type Props = {
   households: HouseholdRef[];
   people: PersonRef[];
   year: number;
-  defaultBuyerId: string;
+  /** Fixed: your household for a new present, the original buyer when editing. */
+  buyerId: string;
+  /** The viewer's household — its members can't be chosen (presents for them are hidden from them). */
+  viewerHouseholdId: string | null;
   gift?: {
     id: string;
-    buyerId: string;
     description: string;
     costCents: number;
     note: string | null;
@@ -20,9 +22,8 @@ type Props = {
   };
 };
 
-export default function GiftForm({ households, people, year, defaultBuyerId, gift }: Props) {
+export default function GiftForm({ households, people, year, buyerId, viewerHouseholdId, gift }: Props) {
   const [state, action, pending] = useActionState(saveGift, undefined);
-  const [buyerId, setBuyerId] = useState(gift?.buyerId ?? defaultBuyerId);
   const [recipientIds, setRecipientIds] = useState<string[]>(gift?.recipientIds ?? []);
   const [cost, setCost] = useState(gift ? (gift.costCents / 100).toFixed(2) : "");
   // All fields are controlled so they survive React's form reset when the server returns an error.
@@ -34,12 +35,6 @@ export default function GiftForm({ households, people, year, defaultBuyerId, gif
     ...households.map((h) => ({ id: h.id, label: h.name, members: people.filter((p) => p.householdId === h.id) })),
     { id: "shared", label: "Everyone shares", members: people.filter((p) => p.householdId === null) },
   ].filter((g) => g.members.length > 0);
-
-  function changeBuyer(id: string) {
-    setBuyerId(id);
-    // Drop anyone who is now in the buying household.
-    setRecipientIds((ids) => ids.filter((pid) => peopleById.get(pid)?.householdId !== id));
-  }
 
   function toggle(id: string) {
     setRecipientIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
@@ -61,33 +56,24 @@ export default function GiftForm({ households, people, year, defaultBuyerId, gif
       {gift && <input type="hidden" name="id" value={gift.id} />}
       <input type="hidden" name="year" value={year} />
 
-      <div>
-        <label htmlFor="buyerId" className="block font-semibold">
-          Who bought it?
-        </label>
-        <select id="buyerId" name="buyerId" value={buyerId} onChange={(e) => changeBuyer(e.target.value)} className="input mt-2">
-          {households.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <p>
+        <span className="font-semibold">Bought by:</span> {households.find((h) => h.id === buyerId)?.name}
+      </p>
 
       <fieldset>
         <legend className="font-semibold">Who is it for?</legend>
         <p className="mt-1 text-sm text-muted">
-          Tick more than one for a joint present — the cost is split between them. Your own household isn&apos;t
-          shared, so it&apos;s greyed out.
+          Tick more than one for a joint present — the cost is split between them. Your own household is greyed
+          out — presents for them are kept hidden from you.
         </p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => {
-            const own = g.id === buyerId;
+            const own = g.id === buyerId || g.id === viewerHouseholdId;
             return (
               <div key={g.id} className={`card p-4 ${own ? "opacity-50" : ""}`}>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                   {g.label}
-                  {own ? " (your household)" : ""}
+                  {g.id === viewerHouseholdId ? " (your household)" : g.id === buyerId ? " (bought by them)" : ""}
                 </p>
                 <ul className="space-y-1.5">
                   {g.members.map((p) => (

@@ -4,7 +4,8 @@ import Countdown from "@/components/Countdown";
 import { site } from "@/lib/data";
 import { requireSession } from "@/lib/session";
 import { loadFamily, loadGifts, loadYears } from "@/lib/queries";
-import { formatMoney, settleUp, summarise } from "@/lib/split";
+import { formatMoney, isHiddenFrom, settleUp, summarise } from "@/lib/split";
+import { canEditGift } from "@/lib/permissions";
 import { currentYear, parseYear } from "@/lib/years";
 
 export default function Home({ searchParams }: PageProps<"/">) {
@@ -31,15 +32,17 @@ export default function Home({ searchParams }: PageProps<"/">) {
 }
 
 async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
-  await requireSession();
+  const session = await requireSession();
   const year = parseYear((await searchParams).year);
   const [{ households, people }, gifts, years] = await Promise.all([loadFamily(), loadGifts(year), loadYears(currentYear())]);
 
+  // Money is always worked out from every present; only the list hides presents for your household.
   const summary = summarise(gifts, households, people);
   const transfers = settleUp(summary);
-  const totalCents = gifts.reduce((a, g) => a + g.costCents, 0);
   const householdName = new Map(households.map((h) => [h.id, h.name]));
   const personName = new Map(people.map((p) => [p.id, p.name]));
+  const peopleById = new Map(people.map((p) => [p.id, p]));
+  const visibleGifts = gifts.filter((g) => !isHiddenFrom(g.recipientIds, session.householdId, peopleById));
 
   // Per-recipient tally: how much has been spent on each person this year.
   const received = new Map<string, { count: number; cents: number }>();
@@ -52,8 +55,13 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
     }
   }
   const groups = [
-    ...households.map((h) => ({ label: h.name, members: people.filter((p) => p.householdId === h.id) })),
-    { label: "Everyone shares", members: people.filter((p) => p.householdId === null) },
+    ...households.map((h) => ({
+      label: h.name,
+      own: h.id === session.householdId,
+      isHousehold: true,
+      members: people.filter((p) => p.householdId === h.id),
+    })),
+    { label: "Everyone shares", own: false, isHousehold: false, members: people.filter((p) => p.householdId === null) },
   ].filter((g) => g.members.length > 0);
 
   return (
@@ -81,14 +89,9 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
 
       {/* Balances */}
       <section aria-labelledby="balances">
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="balances" className="text-2xl font-bold">
-            Balances {year}
-          </h2>
-          <p className="text-sm text-muted">
-            {gifts.length} presents · {formatMoney(totalCents)} total
-          </p>
-        </div>
+        <h2 id="balances" className="mb-4 text-2xl font-bold">
+          Balances {year}
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {summary.map((s) => (
             <div key={s.householdId} className="card p-5">
@@ -109,6 +112,46 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
                   </dd>
                 </div>
               </dl>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Who has a present */}
+      <section aria-labelledby="recipients">
+        <h2 id="recipients" className="mb-4 text-2xl font-bold">
+          Who&apos;s covered
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {groups.map((g) => (
+            <div key={g.label} className="card p-5">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+                {g.label}
+                {g.own ? " (yours)" : ""}
+              </h3>
+              {/* Parents, then a dividing line, then their kids. */}
+              {[g.members.filter((p) => p.canLogin || !g.isHousehold), g.members.filter((p) => !p.canLogin && g.isHousehold)]
+                .filter((list) => list.length > 0)
+                .map((list, i) => (
+                  <ul key={i} className={`space-y-2 text-sm ${i > 0 ? "mt-3 border-t border-border pt-3" : ""}`}>
+                    {list.map((p) => {
+                      const r = received.get(p.id);
+                      return (
+                        <li key={p.id} className="flex items-center justify-between gap-2">
+                          <span>
+                            <span aria-hidden>{r ? "✅" : "⬜"}</span> {p.name}
+                          </span>
+                          {/* Your own household: ticks only — no amounts or counts. */}
+                          {!g.own && (
+                            <span className={`tabular-nums ${r ? "" : "text-muted"}`}>
+                              {r ? `${formatMoney(Math.round(r.cents))}${r.count > 1 ? ` (${r.count})` : ""}` : "Not yet"}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ))}
             </div>
           ))}
         </div>
@@ -135,43 +178,17 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
         )}
       </section>
 
-      {/* Who has a present */}
-      <section aria-labelledby="recipients">
-        <h2 id="recipients" className="mb-4 text-2xl font-bold">
-          Who&apos;s covered
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((g) => (
-            <div key={g.label} className="card p-5">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{g.label}</h3>
-              <ul className="space-y-2 text-sm">
-                {g.members.map((p) => {
-                  const r = received.get(p.id);
-                  return (
-                    <li key={p.id} className="flex items-center justify-between gap-2">
-                      <span>
-                        <span aria-hidden>{r ? "✅" : "⬜"}</span> {p.name}
-                      </span>
-                      <span className={`tabular-nums ${r ? "" : "text-muted"}`}>
-                        {r ? `${formatMoney(Math.round(r.cents))}${r.count > 1 ? ` (${r.count})` : ""}` : "Not yet"}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Present list */}
       <section aria-labelledby="presents">
         <h2 id="presents" className="mb-4 text-2xl font-bold">
           All presents {year}
         </h2>
-        {gifts.length === 0 ? (
+        {session.householdId && (
+          <p className="mb-4 text-sm text-muted">Presents for your own household are hidden so they stay a surprise.</p>
+        )}
+        {visibleGifts.length === 0 ? (
           <p className="text-muted">
-            No presents yet.{" "}
+            No presents to show yet.{" "}
             <Link href={`/presents/new?year=${year}`} className="font-semibold text-primary underline">
               Add the first one
             </Link>
@@ -179,7 +196,7 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
           </p>
         ) : (
           <ul className="card divide-y divide-border">
-            {gifts.map((g) => (
+            {visibleGifts.map((g) => (
               <li key={g.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">
@@ -194,9 +211,11 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="font-semibold tabular-nums">{formatMoney(g.costCents)}</span>
-                  <Link href={`/presents/${g.id}/edit`} className="text-sm font-medium text-primary hover:underline">
-                    Edit
-                  </Link>
+                  {canEditGift(g, session) && (
+                    <Link href={`/presents/${g.id}/edit`} className="text-sm font-medium text-primary hover:underline">
+                      Edit
+                    </Link>
+                  )}
                 </div>
               </li>
             ))}

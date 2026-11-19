@@ -1,4 +1,4 @@
-// Signed session token: "<personId>.<expiresAtSeconds>.<hmac>".
+// Signed session token: "<personId>.<sessionVersion>.<expiresAtSeconds>.<hmac>".
 // No Next.js imports so it can be used from proxy.ts and server code alike.
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -21,24 +21,27 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-export function createToken(personId: string, nowSeconds: number): string {
-  const body = `${personId}.${nowSeconds + SESSION_MAX_AGE_SECONDS}`;
+export function createToken(personId: string, version: number, nowSeconds: number): string {
+  const body = `${personId}.${version}.${nowSeconds + SESSION_MAX_AGE_SECONDS}`;
   return `${body}.${hmac(body)}`;
 }
 
-/** Returns the personId if the token is authentic and unexpired. */
-export function verifyToken(token: string | undefined, nowSeconds: number): string | null {
+/**
+ * Returns the person and session version if the token is authentic and unexpired.
+ * The version must still be checked against the database (see lib/session.ts).
+ */
+export function verifyToken(token: string | undefined, nowSeconds: number): { personId: string; version: number } | null {
   if (!token) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [personId, exp, sig] = parts;
-  if (!safeEqual(sig, hmac(`${personId}.${exp}`))) return null;
-  if (!/^\d+$/.test(exp) || Number(exp) < nowSeconds) return null;
-  return personId;
+  if (parts.length !== 4) return null;
+  const [personId, version, exp, sig] = parts;
+  if (!safeEqual(sig, hmac(`${personId}.${version}.${exp}`))) return null;
+  if (!/^\d+$/.test(version) || !/^\d+$/.test(exp) || Number(exp) < nowSeconds) return null;
+  return { personId, version: Number(version) };
 }
 
 /** Constant-time comparison of an entered PIN with FAMILY_PIN. */
-export function pinMatches(entered: string): boolean {
+export function familyPinMatches(entered: string): boolean {
   const pin = process.env.FAMILY_PIN;
   if (!pin) throw new Error("FAMILY_PIN must be set");
   return safeEqual(hmac(`pin:${entered}`), hmac(`pin:${pin}`));

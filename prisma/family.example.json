@@ -1,8 +1,53 @@
 {
   "households": [
-    { "name": "Alex", "adults": ["Alex"], "kids": [] },
-    { "name": "Sam & Jo", "adults": ["Sam", "Jo"], "kids": ["Kid One", "Kid Two"] },
-    { "name": "Chris & Pat", "adults": ["Chris", "Pat"], "kids": ["Kid Three"] }
+    {
+      "name": "Alex",
+      "adults": [
+        "Alex"
+      ],
+      "kids": []
+    },
+    {
+      "name": "Sam & Jo",
+      "adults": [
+        "Sam",
+        "Jo"
+      ],
+      "kids": [
+        "Kid One",
+        "Kid Two"
+      ]
+    },
+    {
+      "name": "Chris & Pat",
+      "adults": [
+        "Chris",
+        "Pat"
+      ],
+      "kids": [
+        "Kid Three"
+      ]
+    }
   ],
-  "shared": ["Grandma", "Grandpa"]
+  "shared": [
+    "Grandma",
+    "Grandpa"
+  ],
+  "admins": [
+    "Alex"
+  ],
+  "spendingLimits": [
+    {
+      "who": "Each couple, and Alex",
+      "amount": 300
+    },
+    {
+      "who": "Grandma",
+      "amount": 400
+    },
+    {
+      "who": "Each of the kids",
+      "amount": 50
+    }
+  ]
 }

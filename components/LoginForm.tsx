@@ -34,7 +34,7 @@ export default function LoginForm({ people }: { people: { id: string; name: stri
       </div>
       <div>
         <label htmlFor="pin" className="block text-sm font-medium">
-          Family PIN
+          PIN
         </label>
         <input id="pin" name="pin" type="password" inputMode="numeric" autoComplete="current-password" required className="input mt-1" />
       </div>

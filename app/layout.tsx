@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -18,6 +18,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: site.name, template: `%s · ${site.name}` },
   description: site.description,
+  // Lets it run full-screen when added to an iPhone home screen.
+  appleWebApp: { capable: true, title: site.name, statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1f6b45",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

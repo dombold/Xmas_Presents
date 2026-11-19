@@ -4,14 +4,21 @@ import { navLinks, site } from "@/lib/data";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions";
 
-// Only shown when signed in: every page except /login needs the family PIN.
+// Only shown once signed in with a personal PIN.
 async function SignedInNav() {
   const session = await getSession();
-  if (!session) return null;
+  // No nav until a personal PIN is set (every page would redirect to /pin anyway).
+  if (!session?.hasPin) return null;
   return (
     <>
       <form action={logout} className="flex items-center gap-3 text-sm">
-        <span className="text-muted">Hi, {session.name}</span>
+        <span className="text-muted">
+          Hi, {session.name}
+          {session.isAdmin ? " (admin)" : ""}
+        </span>
+        <Link href="/pin" className="font-medium hover:text-primary">
+          Change PIN
+        </Link>
         <button type="submit" className="font-medium hover:text-primary">
           Sign out
         </button>

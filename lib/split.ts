@@ -61,6 +61,19 @@ export function invalidRecipientIds(buyerId: string, recipientIds: string[], peo
   return recipientIds.filter((id) => peopleById.get(id)?.householdId === buyerId);
 }
 
+/**
+ * Presents for anyone in the viewer's household are hidden from the whole household
+ * (so nobody sees what's been bought for them). Shared recipients are visible to all.
+ */
+export function isHiddenFrom(
+  recipientIds: string[],
+  viewerHouseholdId: string | null,
+  peopleById: Map<string, Pick<PersonRef, "householdId">>,
+): boolean {
+  if (!viewerHouseholdId) return false;
+  return recipientIds.some((id) => peopleById.get(id)?.householdId === viewerHouseholdId);
+}
+
 /** Round fractional-cent amounts to whole cents while keeping their exact total (largest remainder). */
 function roundPreservingTotal(values: number[]): number[] {
   const total = Math.round(values.reduce((a, b) => a + b, 0));

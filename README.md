@@ -21,3 +21,12 @@ npm run dev
 
 `data/family.json` is kept out of git so the family's names aren't committed. To add a new
 partner or child, edit it and re-run `npm run db:seed` (it adds and updates people and never deletes them).
+
+## PINs and admins
+
+Everyone signs in the first time with `FAMILY_PIN` and then has to choose their own PIN.
+Presents for a person's household are hidden from that household. Only the person who added a
+present, or an admin (`"admins"` in `data/family.json`), can edit it.
+
+Forgotten PIN (run on the server): `npm run pin:reset -- "Name"`. That person then signs in
+with the family PIN again and chooses a new one.
