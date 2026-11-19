@@ -13,7 +13,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
     <>
       <section className="bg-accent text-white">
         <div className="mx-auto max-w-5xl px-4 py-10">
-          <h1 className="text-3xl font-bold sm:text-4xl">Christmas presents</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">Christmas Presents</h1>
           <p className="mt-2 text-white/85">
             Add what you&apos;ve bought and the costs are shared out between households automatically.
           </p>
