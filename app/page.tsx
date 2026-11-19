@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Countdown from "@/components/Countdown";
-import { site } from "@/lib/data";
+import ChristmasCountdown from "@/components/ChristmasCountdown";
+import Snowfall from "@/components/Snowfall";
 import { requireSession } from "@/lib/session";
 import { loadFamily, loadGifts, loadYears } from "@/lib/queries";
 import { formatMoney, isHiddenFrom, settleUp, summarise } from "@/lib/split";
@@ -11,17 +11,14 @@ import { currentYear, parseYear } from "@/lib/years";
 export default function Home({ searchParams }: PageProps<"/">) {
   return (
     <>
-      <section className="bg-accent text-white">
-        <div className="mx-auto max-w-5xl px-4 py-10">
-          <h1 className="text-3xl font-bold sm:text-4xl">Christmas Presents</h1>
+      <section className="relative overflow-hidden bg-accent text-white">
+        <Snowfall />
+        <div className="relative mx-auto max-w-5xl px-4 py-10">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Christmas Presents</h1>
           <p className="mt-2 text-white/85">
             Add what you&apos;ve bought and the costs are shared out between households automatically.
           </p>
-          <p className="mt-4 font-semibold text-gold">
-            <Suspense fallback={<span className="opacity-0">Counting down…</span>}>
-              <Countdown isoDate={site.christmasDate} />
-            </Suspense>
-          </p>
+          <ChristmasCountdown />
         </div>
       </section>
       <Suspense fallback={<p className="mx-auto max-w-5xl px-4 py-10 text-muted">Loading presents…</p>}>

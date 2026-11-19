@@ -60,6 +60,42 @@ body {
   }
 }
 
+/* Banner snow + countdown motion (transform/opacity only) */
+.snowflake {
+  position: absolute;
+  top: -10px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.75);
+  animation-name: snow-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes snow-fall {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  90% { opacity: 0.7; }
+  100% { transform: translate3d(var(--drift, 0px), 420px, 0); opacity: 0; }
+}
+.countdown-tick {
+  animation: countdown-tick 200ms ease-out;
+}
+@keyframes countdown-tick {
+  from { transform: translateY(-35%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.countdown-merry {
+  animation: countdown-merry 1.6s ease-in-out infinite alternate;
+}
+@keyframes countdown-merry {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snowfall { display: none; }
+  .countdown-tick, .countdown-merry { animation: none; }
+}
+
 :focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
