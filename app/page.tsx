@@ -1,0 +1,208 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import Countdown from "@/components/Countdown";
+import { site } from "@/lib/data";
+import { requireSession } from "@/lib/session";
+import { loadFamily, loadGifts, loadYears } from "@/lib/queries";
+import { formatMoney, settleUp, summarise } from "@/lib/split";
+import { currentYear, parseYear } from "@/lib/years";
+
+export default function Home({ searchParams }: PageProps<"/">) {
+  return (
+    <>
+      <section className="bg-accent text-white">
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <h1 className="text-3xl font-bold sm:text-4xl">Christmas presents</h1>
+          <p className="mt-2 text-white/85">
+            Add what you&apos;ve bought and the costs are shared out between households automatically.
+          </p>
+          <p className="mt-4 font-semibold text-gold">
+            <Suspense fallback={<span className="opacity-0">Counting down…</span>}>
+              <Countdown isoDate={site.christmasDate} />
+            </Suspense>
+          </p>
+        </div>
+      </section>
+      <Suspense fallback={<p className="mx-auto max-w-5xl px-4 py-10 text-muted">Loading presents…</p>}>
+        <Tracker searchParams={searchParams} />
+      </Suspense>
+    </>
+  );
+}
+
+async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
+  await requireSession();
+  const year = parseYear((await searchParams).year);
+  const [{ households, people }, gifts, years] = await Promise.all([loadFamily(), loadGifts(year), loadYears(currentYear())]);
+
+  const summary = summarise(gifts, households, people);
+  const transfers = settleUp(summary);
+  const totalCents = gifts.reduce((a, g) => a + g.costCents, 0);
+  const householdName = new Map(households.map((h) => [h.id, h.name]));
+  const personName = new Map(people.map((p) => [p.id, p.name]));
+
+  // Per-recipient tally: how much has been spent on each person this year.
+  const received = new Map<string, { count: number; cents: number }>();
+  for (const g of gifts) {
+    for (const pid of g.recipientIds) {
+      const r = received.get(pid) ?? { count: 0, cents: 0 };
+      r.count++;
+      r.cents += g.costCents / g.recipientIds.length;
+      received.set(pid, r);
+    }
+  }
+  const groups = [
+    ...households.map((h) => ({ label: h.name, members: people.filter((p) => p.householdId === h.id) })),
+    { label: "Everyone shares", members: people.filter((p) => p.householdId === null) },
+  ].filter((g) => g.members.length > 0);
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-12 px-4 py-10">
+      {/* Year + actions */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <nav aria-label="Year" className="flex flex-wrap gap-2">
+          {years.map((y) => (
+            <Link
+              key={y}
+              href={`/?year=${y}`}
+              aria-current={y === year ? "page" : undefined}
+              className={`rounded-full border px-4 py-1.5 text-sm font-semibold ${
+                y === year ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:border-primary"
+              }`}
+            >
+              {y}
+            </Link>
+          ))}
+        </nav>
+        <Link href={`/presents/new?year=${year}`} className="btn-primary">
+          + Add a present
+        </Link>
+      </div>
+
+      {/* Balances */}
+      <section aria-labelledby="balances">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="balances" className="text-2xl font-bold">
+            Balances {year}
+          </h2>
+          <p className="text-sm text-muted">
+            {gifts.length} presents · {formatMoney(totalCents)} total
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {summary.map((s) => (
+            <div key={s.householdId} className="card p-5">
+              <h3 className="font-semibold">{s.name}</h3>
+              <dl className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-muted">Spent</dt>
+                  <dd className="tabular-nums">{formatMoney(s.spentCents)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted">Their share</dt>
+                  <dd className="tabular-nums">{formatMoney(s.shareCents)}</dd>
+                </div>
+                <div className="flex justify-between border-t border-border pt-2 font-semibold">
+                  <dt>{s.balanceCents > 0 ? "Is owed" : s.balanceCents < 0 ? "Owes" : "Square"}</dt>
+                  <dd className={`tabular-nums ${s.balanceCents > 0 ? "text-accent" : s.balanceCents < 0 ? "text-primary" : ""}`}>
+                    {formatMoney(Math.abs(s.balanceCents))}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Settle up */}
+      <section aria-labelledby="settle">
+        <h2 id="settle" className="mb-4 text-2xl font-bold">
+          Settle up
+        </h2>
+        {transfers.length === 0 ? (
+          <p className="text-muted">Everyone is square{gifts.length === 0 ? " — no presents added yet" : ""}.</p>
+        ) : (
+          <ul className="card divide-y divide-border">
+            {transfers.map((t) => (
+              <li key={`${t.fromId}-${t.toId}`} className="flex flex-wrap items-center justify-between gap-2 p-4">
+                <span>
+                  <strong>{t.fromName}</strong> pays <strong>{t.toName}</strong>
+                </span>
+                <span className="font-semibold tabular-nums">{formatMoney(t.amountCents)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Who has a present */}
+      <section aria-labelledby="recipients">
+        <h2 id="recipients" className="mb-4 text-2xl font-bold">
+          Who&apos;s covered
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {groups.map((g) => (
+            <div key={g.label} className="card p-5">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{g.label}</h3>
+              <ul className="space-y-2 text-sm">
+                {g.members.map((p) => {
+                  const r = received.get(p.id);
+                  return (
+                    <li key={p.id} className="flex items-center justify-between gap-2">
+                      <span>
+                        <span aria-hidden>{r ? "✅" : "⬜"}</span> {p.name}
+                      </span>
+                      <span className={`tabular-nums ${r ? "" : "text-muted"}`}>
+                        {r ? `${formatMoney(Math.round(r.cents))}${r.count > 1 ? ` (${r.count})` : ""}` : "Not yet"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Present list */}
+      <section aria-labelledby="presents">
+        <h2 id="presents" className="mb-4 text-2xl font-bold">
+          All presents {year}
+        </h2>
+        {gifts.length === 0 ? (
+          <p className="text-muted">
+            No presents yet.{" "}
+            <Link href={`/presents/new?year=${year}`} className="font-semibold text-primary underline">
+              Add the first one
+            </Link>
+            .
+          </p>
+        ) : (
+          <ul className="card divide-y divide-border">
+            {gifts.map((g) => (
+              <li key={g.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {g.recipientIds.map((id) => personName.get(id)).join(" & ")}
+                    <span className="font-normal text-muted"> — {g.description}</span>
+                  </p>
+                  <p className="text-sm text-muted">
+                    Bought by {householdName.get(g.buyerId)}
+                    {g.enteredBy ? ` · added by ${g.enteredBy.name}` : ""}
+                    {g.note ? ` · ${g.note}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-semibold tabular-nums">{formatMoney(g.costCents)}</span>
+                  <Link href={`/presents/${g.id}/edit`} className="text-sm font-medium text-primary hover:underline">
+                    Edit
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A paying unit: a sibling on their own, or a sibling and partner.
+/// Presents are paid for by households and costs are shared between them.
+model Household {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  members   Person[]
+  gifts     Gift[]
+}
+
+/// Anyone who can receive a present. People in a household (adults and kids)
+/// are paid for by the *other* households; people with no household
+/// (e.g. grandparents) are shared by every household.
+model Person {
+  id           String          @id @default(cuid())
+  name         String          @unique
+  householdId  String?
+  household    Household?      @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  /// Adults who can sign in and enter presents.
+  canLogin     Boolean         @default(false)
+  sortOrder    Int             @default(0)
+  received     GiftRecipient[]
+  giftsEntered Gift[]          @relation("EnteredBy")
+
+  @@index([householdId])
+}
+
+model Gift {
+  id          String          @id @default(cuid())
+  year        Int
+  buyerId     String
+  buyer       Household       @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  description String
+  /// Whole cents to avoid floating point drift.
+  costCents   Int
+  note        String?
+  enteredById String?
+  enteredBy   Person?         @relation("EnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+  recipients  GiftRecipient[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([year])
+  @@index([buyerId])
+}
+
+/// A present can be for one person or shared by several (e.g. a joint gift to a couple);
+/// its cost is divided equally between its recipients.
+model GiftRecipient {
+  giftId   String
+  gift     Gift   @relation(fields: [giftId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@id([giftId, personId])
+  @@index([personId])
+}

@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fdfaf5;
+  --foreground: #1f2a24;
+  --surface: #ffffff;
+  --muted: #5d6b63;
+  --border: #e6ded0;
+  --primary: #b3202a; /* holly red */
+  --primary-foreground: #ffffff;
+  --accent: #1f6b45; /* pine green */
+  --gold: #c99a2e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0e1713;
+    --foreground: #eef2ee;
+    --surface: #16221c;
+    --muted: #a3b2a9;
+    --border: #2a3a31;
+    --primary: #e0474f;
+    --primary-foreground: #ffffff;
+    --accent: #4fae7d;
+    --gold: #e2b94f;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-gold: var(--gold);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@layer components {
+  .input {
+    @apply block w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-border bg-surface px-5 py-2.5 font-semibold hover:border-primary;
+  }
+  .card {
+    @apply rounded-xl border border-border bg-surface;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
