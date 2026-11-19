@@ -6,12 +6,12 @@ import { requireSession } from "@/lib/session";
 import { loadFamily } from "@/lib/queries";
 import { parseYear } from "@/lib/years";
 
-export const metadata: Metadata = { title: "Add a present" };
+export const metadata: Metadata = { title: "Add a Present" };
 
 export default function NewPresentPage({ searchParams }: PageProps<"/presents/new">) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <PageHeading title="Add a present" intro="Enter something you've bought — the cost is shared out automatically." />
+      <PageHeading title="Add a Present" intro="Enter something you've bought — the cost is shared out automatically." />
       <Suspense fallback={<p className="text-muted">Loading…</p>}>
         <NewPresent searchParams={searchParams} />
       </Suspense>

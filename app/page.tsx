@@ -86,7 +86,7 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
       <div className="flex flex-wrap items-center justify-between gap-4">
         <YearSelect years={years} year={year} />
         <Link href={`/presents/new?year=${year}`} className="btn-primary">
-          + Add a present
+          + Add a Present
         </Link>
       </div>
 

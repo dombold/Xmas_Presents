@@ -20,7 +20,7 @@ export const FamilySchema = z.object({
   pastShared: z.array(z.string().min(1)).default([]),
   /** Adults who can edit or delete any present they can see. */
   admins: z.array(z.string().min(1)).default([]),
-  /** Shown on the How it works page. */
+  /** Shown on the Guide page. */
   spendingLimits: z.array(z.object({ who: z.string().min(1), amount: z.number().positive() })).default([]),
 });
 

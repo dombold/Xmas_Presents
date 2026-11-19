@@ -5,7 +5,7 @@ import { readFamilyFile } from "@/lib/familyFile";
 import { requireSession } from "@/lib/session";
 import { formatMoney } from "@/lib/split";
 
-export const metadata: Metadata = { title: "How it works" };
+export const metadata: Metadata = { title: "Guide" };
 
 const sections = [
   { id: "adding", icon: "🎁", title: "Adding a present" },
@@ -48,7 +48,7 @@ async function SpendingLimits() {
 export default function HowItWorksPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <PageHeading title="How it works" intro="The same rules as the family spreadsheet." />
+      <PageHeading title="Guide" intro="The same rules as the family spreadsheet." />
 
       <nav aria-label="On this page" className="card mb-6 p-4">
         <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">

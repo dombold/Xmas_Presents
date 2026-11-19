@@ -6,6 +6,6 @@ export const site = {
 
 export const navLinks = [
   { href: "/", label: "Presents" },
-  { href: "/presents/new", label: "Add a present" },
-  { href: "/how-it-works", label: "How it works" },
+  { href: "/presents/new", label: "Add a Present" },
+  { href: "/how-it-works", label: "Guide" },
 ];
