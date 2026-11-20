@@ -75,8 +75,11 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
       label: "Everyone shares",
       own: false,
       isHousehold: false,
-      // Retired recipients (e.g. from years ago) only show in years they received something.
-      members: people.filter((p) => p.householdId === null && (!p.retired || received.has(p.id))),
+      // In past years, and for retired recipients, only show people who received something that year
+      // (so a recipient added this year doesn't appear in older years).
+      members: people.filter(
+        (p) => p.householdId === null && (received.has(p.id) || (!p.retired && year >= currentYear())),
+      ),
     },
   ].filter((g) => g.members.length > 0);
 
