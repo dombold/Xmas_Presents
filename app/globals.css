@@ -91,9 +91,51 @@ body {
   from { transform: scale(1); }
   to { transform: scale(1.05); }
 }
+/* Santa's sleigh beside the countdown */
+.santa-fly {
+  animation: santa-fly 3.2s ease-in-out infinite alternate;
+}
+@keyframes santa-fly {
+  from { transform: translate(0, 1px) rotate(-2deg); }
+  to { transform: translate(6px, -2px) rotate(1deg); }
+}
+.santa-bob {
+  animation: santa-bob 0.9s ease-in-out infinite alternate;
+}
+@keyframes santa-bob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-1.5px); }
+}
+.santa-leg {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: santa-gallop 0.45s ease-in-out infinite alternate;
+}
+.santa-leg-alt {
+  animation-direction: alternate-reverse;
+}
+@keyframes santa-gallop {
+  from { transform: rotate(-22deg); }
+  to { transform: rotate(22deg); }
+}
+.santa-nose {
+  animation: santa-glow 1.2s ease-in-out infinite alternate;
+}
+@keyframes santa-glow {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.santa-sparkle {
+  animation: santa-sparkle 1.2s ease-in-out infinite;
+}
+@keyframes santa-sparkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
   .snowfall { display: none; }
   .countdown-tick, .countdown-merry { animation: none; }
+  .santa-fly, .santa-bob, .santa-leg, .santa-nose, .santa-sparkle { animation: none; }
 }
 
 :focus-visible {

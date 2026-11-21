@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { countdownTo } from "@/lib/christmas";
+import SantaSleigh from "@/components/SantaSleigh";
 
 // A once-a-second clock. The snapshot is whole seconds, so it's stable within a tick.
 function subscribe(onTick: () => void) {
@@ -47,15 +48,15 @@ export default function ChristmasCountdown() {
   return (
     <div className="mt-6 max-w-md">
       {/* Screen readers get one calm sentence instead of a number changing every second. */}
-      <p className="sr-only">{state ? `${state.days} days until Christmas` : "Counting down to Christmas"}</p>
+      <p className="sr-only">{state ? `${state.days} days until Santa comes` : "Counting down to Christmas"}</p>
       <div aria-hidden className="grid grid-cols-4 gap-2 sm:gap-3">
         <Tile value={days} label={state?.days === 1 ? "Day" : "Days"} />
         <Tile value={state ? pad(state.hours) : "––"} label="Hours" />
         <Tile value={state ? pad(state.minutes) : "––"} label="Mins" />
         <Tile value={state ? pad(state.seconds) : "––"} label="Secs" animate={state !== null} />
       </div>
-      <p aria-hidden className="mt-3 text-sm font-medium text-white/85">
-        until Christmas Day <span>🎄</span>
+      <p aria-hidden className="mt-3 flex items-center gap-3 text-sm font-medium text-white/85">
+        until Santa Comes <SantaSleigh />
       </p>
     </div>
   );
