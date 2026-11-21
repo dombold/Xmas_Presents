@@ -47,8 +47,8 @@ async function EditPresent({ params }: { params: PageProps<"/presents/[id]/edit"
   if (!gift) notFound();
   const recipientIds = gift.recipients.map((r) => r.personId);
 
-  // Presents for your own household don't exist as far as you're concerned — admins included.
-  if (isHiddenFrom(recipientIds, session.householdId, new Map(people.map((p) => [p.id, p])))) notFound();
+  // Presents for you or your own household don't exist as far as you're concerned — admins included.
+  if (isHiddenFrom(recipientIds, session, new Map(people.map((p) => [p.id, p])))) notFound();
 
   const back = (
     <Link href={`/?year=${gift.year}`} className="btn-secondary mt-6">
@@ -58,11 +58,7 @@ async function EditPresent({ params }: { params: PageProps<"/presents/[id]/edit"
   if (!canEditGift(gift, session)) {
     return (
       <div>
-        <p>
-          {gift.enteredBy
-            ? `Only ${gift.enteredBy.name} can edit this present.`
-            : "This present can't be edited."}
-        </p>
+        <p>{gift.enteredBy ? `Only ${gift.enteredBy.name} can edit this present.` : "This present can't be edited."}</p>
         {back}
       </div>
     );
@@ -81,7 +77,9 @@ async function EditPresent({ params }: { params: PageProps<"/presents/[id]/edit"
         people={people.filter((p) => !p.retired || recipientIds.includes(p.id))}
         year={gift.year}
         buyerId={gift.buyerId}
+        buyerName={households.find((h) => h.id === gift.buyerId)?.name ?? gift.enteredBy?.name ?? "Unknown"}
         viewerHouseholdId={session.householdId}
+        viewerPersonId={session.personId}
         gift={{
           id: gift.id,
           description: gift.description,

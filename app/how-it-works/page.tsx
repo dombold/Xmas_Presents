@@ -87,6 +87,10 @@ export default function HowItWorksPage() {
               <strong>every household</strong>.
             </li>
             <li>The household that bought the present pays its share too, like everyone else.</li>
+            <li>
+              Presents added by someone outside the households are their own: they&apos;re listed so nobody buys the
+              same thing twice, but they aren&apos;t shared and don&apos;t tick anyone off in “Who&apos;s covered”.
+            </li>
           </ul>
         </section>
 
@@ -106,7 +110,7 @@ export default function HowItWorksPage() {
               The first time you sign in you use the family PIN, then choose your own. After that only your own PIN
               works for you.
             </li>
-            <li>Presents bought for anyone in your household are hidden from you — you&apos;ll just see a tick.</li>
+            <li>Presents bought for you or anyone in your household are hidden from you — you&apos;ll just see a tick.</li>
             <li>Only the person who added a present (or the site admin) can change or delete it.</li>
             <li>Forgotten your PIN? Ask the site admin to reset it.</li>
           </ul>

@@ -49,8 +49,10 @@ model Person {
 model Gift {
   id          String          @id @default(cuid())
   year        Int
-  buyerId     String
-  buyer       Household       @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  /// Null: bought by the person who entered it (a shared recipient who can sign in) with their own
+  /// money. Listed so nobody doubles up, but never split and not counted as anyone being covered.
+  buyerId     String?
+  buyer       Household?      @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   description String
   /// Whole cents to avoid floating point drift.
   costCents   Int

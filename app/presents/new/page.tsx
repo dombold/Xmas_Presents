@@ -11,7 +11,10 @@ export const metadata: Metadata = { title: "Add a Present" };
 export default function NewPresentPage({ searchParams }: PageProps<"/presents/new">) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <PageHeading title="Add a Present" intro="Enter something you've bought — the cost is shared out automatically." />
+      <PageHeading
+        title="Add a Present"
+        intro="Enter something you've bought so nobody doubles up — household presents are shared out automatically."
+      />
       <Suspense fallback={<p className="text-muted">Loading…</p>}>
         <NewPresent searchParams={searchParams} />
       </Suspense>
@@ -22,7 +25,6 @@ export default function NewPresentPage({ searchParams }: PageProps<"/presents/ne
 async function NewPresent({ searchParams }: { searchParams: PageProps<"/presents/new">["searchParams"] }) {
   const session = await requireSession();
   const year = parseYear((await searchParams).year);
-  if (!session.householdId) return <p className="text-muted">Only people in a household can add presents.</p>;
   const { households, people } = await loadFamily();
   return (
     <GiftForm
@@ -30,7 +32,9 @@ async function NewPresent({ searchParams }: { searchParams: PageProps<"/presents
       people={people.filter((p) => !p.retired)}
       year={year}
       buyerId={session.householdId}
+      buyerName={households.find((h) => h.id === session.householdId)?.name ?? session.name}
       viewerHouseholdId={session.householdId}
+      viewerPersonId={session.personId}
     />
   );
 }

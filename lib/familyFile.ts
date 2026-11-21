@@ -18,6 +18,9 @@ export const FamilySchema = z.object({
   shared: z.array(z.string().min(1)).default([]),
   /** Shared recipients from earlier years who aren't bought for any more (kept for past years). */
   pastShared: z.array(z.string().min(1)).default([]),
+  /** Shared recipients who can sign in: they add presents they pay for themselves (never split)
+   *  so nobody buys the same thing twice, and see the present list but not the balances. */
+  sharedLogins: z.array(z.string().min(1)).default([]),
   /** Adults who can edit or delete any present they can see. */
   admins: z.array(z.string().min(1)).default([]),
   /** Shown on the Guide page. */

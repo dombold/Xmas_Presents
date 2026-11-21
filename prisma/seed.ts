@@ -15,6 +15,9 @@ async function main() {
   const unknownAdmins = family.admins.filter((a) => !adults.has(a));
   if (unknownAdmins.length > 0) throw new Error(`"admins" must be adults in a household: ${unknownAdmins.join(", ")}`);
   const admins = new Set(family.admins);
+  const unknownLogins = family.sharedLogins.filter((n) => !family.shared.includes(n));
+  if (unknownLogins.length > 0) throw new Error(`"sharedLogins" must be listed in "shared": ${unknownLogins.join(", ")}`);
+  const sharedLogins = new Set(family.sharedLogins);
 
   let order = 0;
   for (const [hi, h] of family.households.entries()) {
@@ -40,7 +43,7 @@ async function main() {
     ...family.pastShared.map((name) => ({ name, retired: true })),
   ];
   for (const { name, retired } of shared) {
-    const fields = { householdId: null, canLogin: false, isAdmin: false, retired, sortOrder: order };
+    const fields = { householdId: null, canLogin: sharedLogins.has(name), isAdmin: false, retired, sortOrder: order };
     await prisma.person.upsert({ where: { name }, update: fields, create: { name, ...fields } });
     order++;
   }

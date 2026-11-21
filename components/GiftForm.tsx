@@ -9,10 +9,15 @@ type Props = {
   households: HouseholdRef[];
   people: PersonRef[];
   year: number;
-  /** Fixed: your household for a new present, the original buyer when editing. */
-  buyerId: string;
+  /** Fixed: your household for a new present, the original buyer when editing.
+   *  Null: a shared person's own present, which isn't split. */
+  buyerId: string | null;
+  /** Shown as "Bought by" — the household, or the person for an unsplit present. */
+  buyerName: string;
   /** The viewer's household — its members can't be chosen (presents for them are hidden from them). */
   viewerHouseholdId: string | null;
+  /** The viewer can't choose themselves either. */
+  viewerPersonId: string;
   gift?: {
     id: string;
     description: string;
@@ -22,7 +27,16 @@ type Props = {
   };
 };
 
-export default function GiftForm({ households, people, year, buyerId, viewerHouseholdId, gift }: Props) {
+export default function GiftForm({
+  households,
+  people,
+  year,
+  buyerId,
+  buyerName,
+  viewerHouseholdId,
+  viewerPersonId,
+  gift,
+}: Props) {
   const [state, action, pending] = useActionState(saveGift, undefined);
   const [recipientIds, setRecipientIds] = useState<string[]>(gift?.recipientIds ?? []);
   const [cost, setCost] = useState(gift ? (gift.costCents / 100).toFixed(2) : "");
@@ -41,8 +55,11 @@ export default function GiftForm({ households, people, year, buyerId, viewerHous
   }
 
   const costCents = parseDollars(cost);
+  const notSplit = buyerId === null;
   const preview =
-    costCents && recipientIds.length > 0 ? giftShares({ costCents, recipientIds }, households, peopleById) : null;
+    !notSplit && costCents && recipientIds.length > 0
+      ? giftShares({ costCents, recipientIds }, households, peopleById)
+      : null;
 
   return (
     <form
@@ -52,19 +69,22 @@ export default function GiftForm({ households, people, year, buyerId, viewerHous
         const data = new FormData(e.currentTarget);
         startTransition(() => action(data));
       }}
-      className="space-y-8">
+      className="space-y-8"
+    >
       {gift && <input type="hidden" name="id" value={gift.id} />}
       <input type="hidden" name="year" value={year} />
 
       <p>
-        <span className="font-semibold">Bought by:</span> {households.find((h) => h.id === buyerId)?.name}
+        <span className="font-semibold">Bought by:</span> {buyerName}
+        {notSplit && <span className="text-muted"> (not shared)</span>}
       </p>
 
       <fieldset>
         <legend className="font-semibold">Who is it for?</legend>
         <p className="mt-1 text-sm text-muted">
-          Tick more than one for a joint present — the cost is split between them. Your own household is greyed
-          out — presents for them are kept hidden from you.
+          Tick more than one for a joint present{notSplit ? "" : " — the cost is split between them"}.{" "}
+          {viewerHouseholdId ? "You and your own household are" : "You are"} greyed out — presents for{" "}
+          {viewerHouseholdId ? "them" : "you"} are kept hidden from you.
         </p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => {
@@ -76,22 +96,27 @@ export default function GiftForm({ households, people, year, buyerId, viewerHous
                   {g.id === viewerHouseholdId ? " (your household)" : g.id === buyerId ? " (bought by them)" : ""}
                 </p>
                 <ul className="space-y-1.5">
-                  {g.members.map((p) => (
-                    <li key={p.id}>
-                      <label className={`flex items-center gap-2 ${own ? "cursor-not-allowed" : "cursor-pointer"}`}>
-                        <input
-                          type="checkbox"
-                          name="recipientIds"
-                          value={p.id}
-                          checked={recipientIds.includes(p.id)}
-                          onChange={() => toggle(p.id)}
-                          disabled={own}
-                          className="size-4 accent-[var(--primary)]"
-                        />
-                        {p.name}
-                      </label>
-                    </li>
-                  ))}
+                  {g.members.map((p) => {
+                    const disabled = own || p.id === viewerPersonId;
+                    return (
+                      <li key={p.id} className={!own && disabled ? "opacity-50" : ""}>
+                        <label
+                          className={`flex items-center gap-2 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            name="recipientIds"
+                            value={p.id}
+                            checked={recipientIds.includes(p.id)}
+                            onChange={() => toggle(p.id)}
+                            disabled={disabled}
+                            className="size-4 accent-[var(--primary)]"
+                          />
+                          {p.name}
+                        </label>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             );
@@ -136,12 +161,23 @@ export default function GiftForm({ households, people, year, buyerId, viewerHous
         <label htmlFor="note" className="block font-semibold">
           Note <span className="font-normal text-muted">(optional)</span>
         </label>
-        <input id="note" name="note" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className="input mt-2" />
+        <input
+          id="note"
+          name="note"
+          maxLength={500}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          className="input mt-2"
+        />
       </div>
 
       <div className="card p-5" aria-live="polite">
         <p className="font-semibold">How this is shared</p>
-        {preview ? (
+        {notSplit ? (
+          <p className="mt-2 text-sm text-muted">
+            Not shared — this one is paid for by {buyerName}. It&apos;s listed so nobody buys the same thing.
+          </p>
+        ) : preview ? (
           <ul className="mt-2 space-y-1 text-sm">
             {households.map((h) => (
               <li key={h.id} className="flex justify-between">

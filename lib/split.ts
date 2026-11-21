@@ -8,13 +8,17 @@
 //    - every household, if the recipient has no household (e.g. grandparents).
 // 3. The buying household pays its share like everyone else.
 // 4. Balance = spent − share. Positive means the household is owed money.
+// 5. A present with no buying household (added by a shared person who paid for it themselves)
+//    is left out of every total.
 //
 // Pure module: no DB or React imports, so server pages, actions and client forms
 // all compute the same numbers.
 
 export type HouseholdRef = { id: string; name: string };
 export type PersonRef = { id: string; name: string; householdId: string | null };
-export type GiftRef = { buyerId: string; costCents: number; recipientIds: string[] };
+/** buyerId null: a shared person's own present — listed, never split. */
+export type GiftRef = { buyerId: string | null; costCents: number; recipientIds: string[] };
+export type ViewerRef = { personId: string; householdId: string | null };
 
 export type HouseholdSummary = {
   householdId: string;
@@ -57,21 +61,27 @@ export function giftShares(
  * (In the spreadsheet a cost entered against your own household counted as spending
  * but was never charged to anyone, silently giving you credit.)
  */
-export function invalidRecipientIds(buyerId: string, recipientIds: string[], peopleById: Map<string, PersonRef>) {
+export function invalidRecipientIds(buyerId: string | null, recipientIds: string[], peopleById: Map<string, PersonRef>) {
+  // No household (a shared person's own present): nothing to exclude here — without this guard
+  // every shared recipient (householdId null) would match.
+  if (buyerId === null) return [];
   return recipientIds.filter((id) => peopleById.get(id)?.householdId === buyerId);
 }
 
 /**
- * Presents for anyone in the viewer's household are hidden from the whole household
- * (so nobody sees what's been bought for them). Shared recipients are visible to all.
+ * Presents for the viewer, or for anyone in the viewer's household, are hidden from them
+ * (so nobody sees what's been bought for them). Other shared recipients are visible to all.
  */
 export function isHiddenFrom(
   recipientIds: string[],
-  viewerHouseholdId: string | null,
+  viewer: ViewerRef,
   peopleById: Map<string, Pick<PersonRef, "householdId">>,
 ): boolean {
-  if (!viewerHouseholdId) return false;
-  return recipientIds.some((id) => peopleById.get(id)?.householdId === viewerHouseholdId);
+  return recipientIds.some(
+    (id) =>
+      id === viewer.personId ||
+      (viewer.householdId !== null && peopleById.get(id)?.householdId === viewer.householdId),
+  );
 }
 
 /** Round fractional-cent amounts to whole cents while keeping their exact total (largest remainder). */
@@ -96,6 +106,7 @@ export function summarise(gifts: GiftRef[], households: HouseholdRef[], people: 
   const share = new Map<string, number>();
 
   for (const g of gifts) {
+    if (g.buyerId === null) continue;
     spent.set(g.buyerId, (spent.get(g.buyerId) ?? 0) + g.costCents);
     for (const [hid, amount] of giftShares(g, households, peopleById)) {
       share.set(hid, (share.get(hid) ?? 0) + amount);

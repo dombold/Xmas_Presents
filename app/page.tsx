@@ -48,15 +48,19 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
     settled: settlements.get(`${t.fromId}:${t.toId}`) === t.amountCents,
   }));
   const allSettled = transfers.length > 0 && transfers.every((t) => t.settled);
-  const totalSpentCents = gifts.reduce((sum, g) => sum + g.costCents, 0);
+  // Presents a shared person paid for themselves are only listed: they aren't split and don't count as covering anyone.
+  const sharedGifts = gifts.filter((g) => g.buyerId !== null);
+  // Shared people (no household) aren't part of the split, so they don't see balances or settling up.
+  const inSplit = session.householdId !== null;
+  const totalSpentCents = sharedGifts.reduce((sum, g) => sum + g.costCents, 0);
   const householdName = new Map(households.map((h) => [h.id, h.name]));
   const personName = new Map(people.map((p) => [p.id, p.name]));
   const peopleById = new Map(people.map((p) => [p.id, p]));
-  const visibleGifts = gifts.filter((g) => !isHiddenFrom(g.recipientIds, session.householdId, peopleById));
+  const visibleGifts = gifts.filter((g) => !isHiddenFrom(g.recipientIds, session, peopleById));
 
   // Per-recipient tally: how much has been spent on each person this year.
   const received = new Map<string, { count: number; cents: number }>();
-  for (const g of gifts) {
+  for (const g of sharedGifts) {
     for (const pid of g.recipientIds) {
       const r = received.get(pid) ?? { count: 0, cents: 0 };
       r.count++;
@@ -94,34 +98,38 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
       </div>
 
       {/* Balances */}
-      <section aria-labelledby="balances">
-        <h2 id="balances" className="mb-4 text-2xl font-bold">
-          Balances {year}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {summary.map((s) => (
-            <div key={s.householdId} className="card p-5">
-              <h3 className="font-semibold">{s.name}</h3>
-              <dl className="mt-3 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-muted">Spent</dt>
-                  <dd className="tabular-nums">{formatMoney(s.spentCents)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted">Their share</dt>
-                  <dd className="tabular-nums">{formatMoney(s.shareCents)}</dd>
-                </div>
-                <div className="flex justify-between border-t border-border pt-2 font-semibold">
-                  <dt>{s.balanceCents > 0 ? "Is owed" : s.balanceCents < 0 ? "Owes" : "Square"}</dt>
-                  <dd className={`tabular-nums ${s.balanceCents > 0 ? "text-accent" : s.balanceCents < 0 ? "text-primary" : ""}`}>
-                    {formatMoney(Math.abs(s.balanceCents))}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          ))}
-        </div>
-      </section>
+      {inSplit && (
+        <section aria-labelledby="balances">
+          <h2 id="balances" className="mb-4 text-2xl font-bold">
+            Balances {year}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {summary.map((s) => (
+              <div key={s.householdId} className="card p-5">
+                <h3 className="font-semibold">{s.name}</h3>
+                <dl className="mt-3 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Spent</dt>
+                    <dd className="tabular-nums">{formatMoney(s.spentCents)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Their share</dt>
+                    <dd className="tabular-nums">{formatMoney(s.shareCents)}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-2 font-semibold">
+                    <dt>{s.balanceCents > 0 ? "Is owed" : s.balanceCents < 0 ? "Owes" : "Square"}</dt>
+                    <dd
+                      className={`tabular-nums ${s.balanceCents > 0 ? "text-accent" : s.balanceCents < 0 ? "text-primary" : ""}`}
+                    >
+                      {formatMoney(Math.abs(s.balanceCents))}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Who has a present */}
       <section aria-labelledby="recipients">
@@ -136,7 +144,10 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
                 {g.own ? " (yours)" : ""}
               </h3>
               {/* Parents, then a dividing line, then their kids. */}
-              {[g.members.filter((p) => p.canLogin || !g.isHousehold), g.members.filter((p) => !p.canLogin && g.isHousehold)]
+              {[
+                g.members.filter((p) => p.canLogin || !g.isHousehold),
+                g.members.filter((p) => !p.canLogin && g.isHousehold),
+              ]
                 .filter((list) => list.length > 0)
                 .map((list, i) => (
                   <ul key={i} className={`space-y-2 text-sm ${i > 0 ? "mt-3 border-t border-border pt-3" : ""}`}>
@@ -147,10 +158,12 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
                           <span>
                             <span aria-hidden>{r ? "✅" : "⬜"}</span> {p.name}
                           </span>
-                          {/* Your own household: ticks only — no amounts or counts. */}
-                          {!g.own && (
+                          {/* Yourself and your own household: ticks only — no amounts or counts. */}
+                          {!g.own && p.id !== session.personId && (
                             <span className={`tabular-nums ${r ? "" : "text-muted"}`}>
-                              {r ? `${formatMoney(Math.round(r.cents))}${r.count > 1 ? ` (${r.count})` : ""}` : "Not yet"}
+                              {r
+                                ? `${formatMoney(Math.round(r.cents))}${r.count > 1 ? ` (${r.count})` : ""}`
+                                : "Not yet"}
                             </span>
                           )}
                         </li>
@@ -164,58 +177,65 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
       </section>
 
       {/* Settle up */}
-      <section aria-labelledby="settle">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <h2 id="settle" className="text-2xl font-bold">
-            Settle up
-          </h2>
-          {allSettled && (
-            <span className="rounded-full bg-accent px-3 py-1 text-sm font-semibold text-white">✓ Settled up</span>
-          )}
-        </div>
-        {transfers.length === 0 ? (
-          <p className="text-muted">Everyone is square{gifts.length === 0 ? " — no presents added yet" : ""}.</p>
-        ) : (
-          <>
-            {!allSettled && (
-              <p className="mb-3 text-sm text-muted">The household being paid ticks each payment once it arrives.</p>
+      {inSplit && (
+        <section aria-labelledby="settle">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <h2 id="settle" className="text-2xl font-bold">
+              Settle up
+            </h2>
+            {allSettled && (
+              <span className="rounded-full bg-accent px-3 py-1 text-sm font-semibold text-white">✓ Settled up</span>
             )}
-            <ul className={`card divide-y divide-border ${allSettled ? "border-accent" : ""}`}>
-              {transfers.map((t) => (
-                <li key={`${t.fromId}-${t.toId}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
-                  <span className={t.settled ? "text-muted" : ""}>
-                    <strong>{t.fromName}</strong> pays <strong>{t.toName}</strong>{" "}
-                    <span className="font-semibold tabular-nums">{formatMoney(t.amountCents)}</span>
-                  </span>
-                  <SettleToggle
-                    year={year}
-                    fromId={t.fromId}
-                    toId={t.toId}
-                    settled={t.settled}
-                    canTick={session.householdId === t.toId || session.isAdmin}
-                    payee={t.toName}
-                  />
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {gifts.length > 0 && (
-          <p className="mt-4 flex justify-between gap-4 border-t-2 border-border pt-3 font-semibold">
-            <span>Total spent on presents in {year}</span>
-            <span className="tabular-nums">{formatMoney(totalSpentCents)}</span>
-          </p>
-        )}
-      </section>
+          </div>
+          {transfers.length === 0 ? (
+            <p className="text-muted">
+              Everyone is square{sharedGifts.length === 0 ? " — no presents added yet" : ""}.
+            </p>
+          ) : (
+            <>
+              {!allSettled && (
+                <p className="mb-3 text-sm text-muted">The household being paid ticks each payment once it arrives.</p>
+              )}
+              <ul className={`card divide-y divide-border ${allSettled ? "border-accent" : ""}`}>
+                {transfers.map((t) => (
+                  <li
+                    key={`${t.fromId}-${t.toId}`}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4"
+                  >
+                    <span className={t.settled ? "text-muted" : ""}>
+                      <strong>{t.fromName}</strong> pays <strong>{t.toName}</strong>{" "}
+                      <span className="font-semibold tabular-nums">{formatMoney(t.amountCents)}</span>
+                    </span>
+                    <SettleToggle
+                      year={year}
+                      fromId={t.fromId}
+                      toId={t.toId}
+                      settled={t.settled}
+                      canTick={session.householdId === t.toId || session.isAdmin}
+                      payee={t.toName}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {sharedGifts.length > 0 && (
+            <p className="mt-4 flex justify-between gap-4 border-t-2 border-border pt-3 font-semibold">
+              <span>Total spent on presents in {year}</span>
+              <span className="tabular-nums">{formatMoney(totalSpentCents)}</span>
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Present list */}
       <section aria-labelledby="presents">
         <h2 id="presents" className="mb-4 text-2xl font-bold">
           All presents {year}
         </h2>
-        {session.householdId && (
-          <p className="mb-4 text-sm text-muted">Presents for your own household are hidden so they stay a surprise.</p>
-        )}
+        <p className="mb-4 text-sm text-muted">
+          Presents for you{session.householdId ? " and your household" : ""} are hidden so they stay a surprise.
+        </p>
         {visibleGifts.length === 0 ? (
           <p className="text-muted">
             No presents to show yet.{" "}
@@ -234,7 +254,8 @@ async function Tracker({ searchParams }: { searchParams: PageProps<"/">["searchP
                     <span className="font-normal text-muted"> — {g.description}</span>
                   </p>
                   <p className="text-sm text-muted">
-                    Bought by {householdName.get(g.buyerId)}
+                    Bought by{" "}
+                    {g.buyerId ? householdName.get(g.buyerId) : `${g.enteredBy?.name ?? "someone"} · not shared`}
                     {g.enteredBy ? ` · added by ${g.enteredBy.name}` : ""}
                     {g.note ? ` · ${g.note}` : ""}
                   </p>

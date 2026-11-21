@@ -162,9 +162,10 @@ export async function saveGift(_prev: FormState, formData: FormData): Promise<Fo
   if (costCents === null || costCents <= 0) return { error: "Enter the cost as a dollar amount, e.g. 45 or 45.50" };
   if (costCents > 100_000_00) return { error: "That cost looks too high — check the amount." };
 
-  // The buyer never comes from the form: a new present is bought by your household;
-  // an edited one keeps its buyer (so an admin fixing it doesn't move it).
-  let buyerId: string;
+  // The buyer never comes from the form: a new present is bought by your household (or, for a
+  // shared person with no household, by you — not split); an edited one keeps its buyer
+  // (so an admin fixing it doesn't move it).
+  let buyerId: string | null;
   let existingRecipients: string[] = [];
   if (data.id) {
     const existing = await prisma.gift.findUnique({
@@ -173,13 +174,12 @@ export async function saveGift(_prev: FormState, formData: FormData): Promise<Fo
     });
     if (!existing) return { error: "That present no longer exists." };
     existingRecipients = existing.recipients.map((r) => r.personId);
-    if (isHiddenFrom(existingRecipients, session.householdId, await peopleMap(existingRecipients))) {
+    if (isHiddenFrom(existingRecipients, session, await peopleMap(existingRecipients))) {
       return { error: "That present no longer exists." };
     }
     if (!canEditGift(existing, session)) return { error: "Only the person who added this present can change it." };
     buyerId = existing.buyerId;
   } else {
-    if (!session.householdId) return { error: "You need to be in a household to add presents." };
     buyerId = session.householdId;
   }
 
@@ -196,8 +196,8 @@ export async function saveGift(_prev: FormState, formData: FormData): Promise<Fo
     const names = ownMembers.map((id) => people.get(id)?.name).join(", ");
     return { error: `${names} is in the buying household — presents for your own household aren't shared.` };
   }
-  if (isHiddenFrom(recipientIds, session.householdId, people)) {
-    return { error: "You can't add presents for your own household." };
+  if (isHiddenFrom(recipientIds, session, people)) {
+    return { error: "You can't add presents for yourself or your own household." };
   }
 
   const fields = { year: data.year, buyerId, description: data.description, costCents, note: data.note ?? null };
@@ -233,7 +233,7 @@ export async function deleteGift(formData: FormData) {
   });
   if (gift) {
     const recipientIds = gift.recipients.map((r) => r.personId);
-    const hidden = isHiddenFrom(recipientIds, session.householdId, await peopleMap(recipientIds));
+    const hidden = isHiddenFrom(recipientIds, session, await peopleMap(recipientIds));
     if (!hidden && canEditGift(gift, session)) await prisma.gift.delete({ where: { id } });
   }
   revalidatePath("/");
